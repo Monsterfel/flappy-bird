@@ -1,0 +1,177 @@
+import pygame
+import random
+
+# Inicializando o Pygame
+pygame.init()
+pygame.font.init()  # Inicializa o sistema de fontes do Pygame
+
+# Definindo as cores
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+
+# Dimensões da janela
+WIDTH = 400
+HEIGHT = 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption('Flappy Bird')
+
+# Definindo o FPS (frames por segundo)
+FPS = 60
+clock = pygame.time.Clock()
+
+# Definindo as variáveis do jogo
+bird_width = 30  # Diminui a largura do hitbox do pássaro
+bird_height = 20  # Diminui a altura do hitbox do pássaro
+bird_x = 50
+bird_y = HEIGHT // 2
+bird_velocity = 0
+gravity = 0.5
+jump = -10
+
+pipe_width = 100  # Largura do cano
+pipe_height = 300  # Altura fixa do cano
+pipe_gap = 200  # Espaço entre os canos
+pipe_velocity = -4
+
+score = 0
+game_over = False
+game_started = False  # Controla se o jogo já foi iniciado
+
+# Carregando a imagem do pássaro
+try:
+    bird_image = pygame.image.load('quadrado.png')  # Imagem do pássaro
+    bird_image = pygame.transform.scale(bird_image, (bird_width, bird_height))  # Redimensiona a imagem
+except pygame.error as e:
+    print(f"Erro ao carregar a imagem 'quadrado.png': {e}")
+    pygame.quit()
+    quit()
+
+# Carregando a imagem do cano
+try:
+    pipe_image = pygame.image.load('retangulo.png')  # Imagem do cano
+    pipe_image = pygame.transform.scale(pipe_image, (pipe_width, pipe_height))  # Define um tamanho fixo para o cano
+except pygame.error as e:
+    print(f"Erro ao carregar a imagem 'retangulo.png': {e}")
+    pygame.quit()
+    quit()
+
+# Função para gerar novos canos
+def create_pipe():
+    pipe_height = random.randint(150, HEIGHT - 200)  # Reduz a altura máxima do cano
+    return {'x': WIDTH, 'height': pipe_height}
+
+# Função para desenhar o pássaro
+def draw_bird():
+    screen.blit(bird_image, (bird_x, bird_y))  # Desenha a imagem do pássaro
+
+# Função para desenhar os canos (usando a imagem)
+def draw_pipe(pipe):
+    screen.blit(pipe_image, (pipe['x'], 0))  # Desenha o cano superior
+    screen.blit(pipe_image, (pipe['x'], pipe['height'] + pipe_gap))  # Desenha o cano inferior
+
+# Função para verificar colisão
+def check_collision(pipe):
+    # Cria retângulos para o cano
+    pipe_rect = pygame.Rect(pipe['x'], 0, pipe_width, pipe_height)  # Cano superior
+    pipe_rect_bottom = pygame.Rect(pipe['x'], pipe['height'] + pipe_gap, pipe_width, pipe_height)  # Cano inferior
+
+    bird_rect = pygame.Rect(bird_x, bird_y, bird_width, bird_height)  # Retângulo do pássaro
+
+    # Verifica se há colisão com os canos
+    if bird_rect.colliderect(pipe_rect) or bird_rect.colliderect(pipe_rect_bottom):
+        return True
+    return bird_y + bird_height > HEIGHT or bird_y < 0
+
+# Função para exibir as instruções iniciais
+def show_instructions():
+    screen.fill(WHITE)
+    font = pygame.font.SysFont(None, 50)
+    title_text = font.render('Flappy Bird', True, BLACK)
+    screen.blit(title_text, [WIDTH // 4, HEIGHT // 4])
+
+    font = pygame.font.SysFont(None, 35)
+    instructions_text1 = font.render('Press SPACE to jump', True, BLACK)
+    instructions_text2 = font.render('Avoid the pipes', True, BLACK)
+    instructions_text3 = font.render('Press ENTER to start', True, BLACK)
+    screen.blit(instructions_text1, [WIDTH // 6, HEIGHT // 2])
+    screen.blit(instructions_text2, [WIDTH // 4, HEIGHT // 2 + 40])
+    screen.blit(instructions_text3, [WIDTH // 5, HEIGHT // 2 + 80])
+
+    pygame.display.update()
+
+# Função principal do jogo
+def game():
+    global bird_y, bird_velocity, score, game_over, game_started
+
+    pipes = [create_pipe()]
+
+    # Exibir a tela de instruções antes do jogo começar
+    while not game_started:
+        show_instructions()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    game_started = True  # Inicia o jogo quando ENTER é pressionado
+
+    while True:
+        screen.fill(WHITE)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and not game_over:
+                    bird_velocity = jump  # Faz o pássaro subir ao pressionar espaço
+                if event.key == pygame.K_r and game_over:
+                    # Reinicia o jogo
+                    game_over = False
+                    bird_y = HEIGHT // 2
+                    bird_velocity = 0
+                    pipes.clear()
+                    pipes.append(create_pipe())
+                    score = 0
+
+        if not game_over:
+            bird_velocity += gravity
+            bird_y += bird_velocity
+
+            # Atualiza a posição dos pipes
+            for pipe in pipes:
+                pipe['x'] += pipe_velocity
+                if pipe['x'] < -pipe_width:
+                    pipes.remove(pipe)
+                    pipes.append(create_pipe())
+                    score += 1
+
+            # Verifica colisão
+            for pipe in pipes:
+                if check_collision(pipe):
+                    game_over = True
+
+            # Desenha o pássaro e os pipes
+            draw_bird()
+            for pipe in pipes:
+                draw_pipe(pipe)
+
+            # Exibindo a pontuação
+            font = pygame.font.SysFont(None, 35)
+            score_text = font.render(f'Score: {score}', True, BLACK)
+            screen.blit(score_text, [10, 10])
+        else:
+            # Exibe a tela de Game Over
+            font = pygame.font.SysFont(None, 75)
+            game_over_text = font.render('Game Over', True, BLACK)
+            screen.blit(game_over_text, [WIDTH // 4, HEIGHT // 3])
+            font = pygame.font.SysFont(None, 35)
+            restart_text = font.render('Press R to Restart', True, BLACK)
+            screen.blit(restart_text, [WIDTH // 4, HEIGHT // 2])
+
+        pygame.display.update()
+        clock.tick(FPS)
+
+# Iniciando o jogo
+game()
